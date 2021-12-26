@@ -221,8 +221,6 @@ def iterate_and_print(already_found, root: LinkedPerson):
 
 def stringToDate(input):
     match len(input.split('-')):
-        case 0:
-            return None
         case 3:
             pass
         case _:
@@ -239,33 +237,39 @@ def stringToDate(input):
                     assert(len(item) == 2)
         else:
             event_components[i] = None
-    year, month, day, hour, minute = event_components
+    year, month, day = event_components
     date_time = EventDate(year, month, day)
     return date_time
 
 def addMemberWithInput(manager: FamilyManager):
-    first = input("What is this person's first name?")
-    last = input("What is this person's last name?")
-    dob_raw = input("What is this person's DOB? Please write in format YYYY-MM-DD_HR:MN (replace digits with Ns if unknown)")
+    first = input("What is this person's first name? ")
+    last = input("What is this person's last name? ")
+    dob_raw = input("What is this person's DOB? Please write in format YYYY-MM-DD (replace digits with Ns if unknown) ")
     dob = stringToDate(dob_raw)
-    dod_raw = input("What is this person's DOD? Please write in format YYYY-MM-DD_HR:MN (replace digits with Ns if unknown)")
-    dod = stringToDate(dod_raw)
+    dod_raw = input("What is this person's DOD? Please write 'Alive' if alive and "
+                    "in format YYYY-MM-DD if deceased(replace digits with Ns if unknown) ")
+    if dod_raw.lower() == 'alive':
+        dod = None
+    else:
+        dod = stringToDate(dod_raw)
 
     member = manager.createFamilyMember(first, last, dob, dod)
-    logging.info(f"Current tree: {manager.getBasicDict()}")
-    relation_id = int(input("What is the ID of the family member to relate to?"))
-    related_member = manager.getMember(relation_id)
-    relation_type = input(f"How is {first} {last} related to {manager.linked_person_dict[relation_id].getName()}?\n"
-                          f"Relationship options are child, spouse, and parent.")
-    match relation_type:
-        case "child":
-            manager.addChild(related_member, member)
-        case "spouse":
-            manager.addCouple(member, related_member)
-        case "parent":
-            manager.addChild(member, related_member)
-        case _:
-            raise ValueError(f"Input must be child, spouse, or parent. Input \"{relation_type}\" is not allowed")
+    print(f"Current tree: {manager.getBasicDict()}")
+    if member != manager.root:
+        relation_id = int(input("What is the ID of the family member to relate to? "))
+        related_member = manager.getMember(relation_id)
+        relation_type = input(f"How is {first} {last} related to {manager.linked_person_dict[relation_id].getName()}?\n"
+                              f"Relationship options are child, spouse, and parent. ")
+        match relation_type:
+            case "child":
+                manager.addChild(related_member, member)
+            case "spouse":
+                manager.addCouple(member, related_member)
+            case "parent":
+                manager.addChild(member, related_member)
+            case _:
+                raise ValueError(f"Input must be child, spouse, or parent. Input \"{relation_type}\" is not allowed")
+    logging.info(f"Family member {first} {last} successfully added to the tree.")
 
 def test_manual_create():
     info_filename = os.path.join(os.getcwd(), "taraporevalas_info.json")
