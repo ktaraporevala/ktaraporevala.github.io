@@ -24,69 +24,88 @@ class PersonInfo:
         death = EventDate(**death_info) if death_info is not None else None
         return PersonInfo(person_id, first_name, last_name, birth, death)
 
-class LinkedPerson:
+class Connection:
+    LINKED_PERSON = 0
+    VERTEX = 1
+
+    def getID(self):
+        raise NotImplementedError("Implemented in subclass")
+
+    def getRelations(self):
+        raise NotImplementedError("Implemented in subclass")
+
+    def getName(self):
+        raise NotImplementedError("Implemented in subclass")
+
+class LinkedPerson(Connection):
 
     def __init__(self, person_id, person_info: PersonInfo):
+        self.type = Connection.LINKED_PERSON
         self.person_id = person_id
         self.info = person_info
-        self.parent = None
-        self.couples = set()
-        self.children = set()
+        self.parent_vertex: Vertex = None
+        self.child_vertices: set = set()
 
     def getID(self):
         return self.person_id
 
-    def addChild(self, child):
-        self.children.add(child)
+    def addParentVertex(self, vertex):
+        self.parent_vertex = vertex
 
-    def addParent(self, person_or_couple):
-        self.parent = person_or_couple
-
-    def joinCouple(self, couple):
-        self.couples.add(couple)
-
-    def getChildren(self):
-        return self.children
+    def addChildVertex(self, vertex):
+        self.child_vertices.add(vertex)
 
     def getParent(self):
-        return self.parent
+        return self.parent_vertex
 
-    def getCouples(self):
-        return self.couples
+    def getVertices(self):
+        return self.child_vertices
 
     def getName(self):
-        return f"{self.info.first_name}_{self.info.last_name}"
+        return f"{self.info.first_name} {self.info.last_name}"
 
     def getRelations(self):
-        relations = {}
-        relations["direct_children"] = [child.getID() for child in self.getChildren()]
-        relations["couples"] = [couple.getID() for couple in self.getCouples()]
-        relations["parent_unit"] = self.getParent().getID() if self.parent is not None else None
+        relations = {"type": self.type,
+                     "child_vertices": [vertex.getID() for vertex in self.getVertices()],
+                     "parent_vertex": self.getParent().getID() if self.parent_vertex is not None else None}
         return relations
 
     def __repr__(self):
         return str(self.info)
 
-class Couple(LinkedPerson):
+class Vertex(Connection):
 
-    def __init__(self, couple_id, members: set):
-        super().__init__(couple_id, None)
-        self.couples = None
-        self.parent = None
-        self.members: set[LinkedPerson] = members
-        assert len(members) == 2
+    def __init__(self, vertex_id, members: set):
+        self.type = Connection.VERTEX
+        self.vertex_id = vertex_id
+        self.children: set[LinkedPerson] = set()
+        self.parents: set[LinkedPerson] = members
+        assert len(members) == 1 or 2
 
-    def getMembers(self):
-        return self.members
+    def addChild(self, child):
+        self.children.add(child)
+
+    def getID(self):
+        return self.vertex_id
+
+    def getParents(self):
+        return self.parents
+
+    def getChildren(self):
+        return self.children
 
     def getName(self):
-        members_list = list(self.getMembers())
-        return f"{members_list[0].getName()} and {members_list[1].getName()}"
+        members_list = list(self.getParents())
+        if len(members_list) == 2:
+            return f"Vertex: {members_list[0].getName()} and {members_list[1].getName()}"
+        elif len(members_list) == 1:
+            return f"Vertex: {members_list[0].getName()}"
+        raise NotImplementedError("Vertex with more than 2 parents not implemented.")
 
     def getRelations(self):
-        relations = {}
-        relations["direct_children"] = [child.getID() for child in self.getChildren()]
-        relations["members"] = [member.getID() for member in self.getMembers()]
+        relations = {"type": self.type,
+                     "children": [child.getID() for child in self.getChildren()],
+                     "parents": [member.getID() for member in self.getParents()]}
         return relations
 
 class FamilyManager:
@@ -94,12 +113,11 @@ class FamilyManager:
     def __init__(self, import_filenames=None):
         self.id_system = ID_System()
         self.root = None
-        self.linked_person_dict: dict[int, LinkedPerson] = {}
+        self.connection_dict: dict[int, Connection] = {}
         if import_filenames is not None:
             info_file = import_filenames[0]
             relationships_file = import_filenames[1]
             self.import_from_jsons(info_file, relationships_file)
-
 
     def import_from_jsons(self, info_filename, relationships_filename):
         with open(info_filename, "r") as infile:
@@ -114,25 +132,29 @@ class FamilyManager:
             info_dict[info_object.person_id] = info_object
         for key, rels_values in rels_dict.items():
             id_number = int(key)
-            if ID_System.isCouple(id_number):
-                member_id0, member_id1 = rels_values['members']
-                member_0, member_1 = self.getMember(int(member_id0)), self.getMember(int(member_id1))
-                couple = self.addCouple(member_0, member_1, id_number)
-                direct_children_ids = rels_values["direct_children"]
-                children = {self.getMember(id_num) for id_num in direct_children_ids if id_num in self.linked_person_dict.keys()}
-                self.addChildren(couple, children)
-            else:
+            if rels_values["type"] == Connection.LINKED_PERSON:
                 person_info = info_dict[id_number]
                 person = self.addFamilyMember(person_info)
-                direct_children_ids = rels_values["direct_children"]
-                children = {self.getMember(id_num) for id_num in direct_children_ids if id_num in self.linked_person_dict.keys()}
-                self.addChildren(person, children)
-                couples = rels_values["couples"]
-                parent_unit_id = rels_values["parent_unit"]
-                if parent_unit_id is not None and parent_unit_id in self.linked_person_dict.keys():
+                vertices = rels_values["child_vertices"]
+                parent_unit_id = rels_values["parent_vertex"]
+                if parent_unit_id is not None and parent_unit_id in self.connection_dict.keys():
                     parent_unit = self.getMember(parent_unit_id)
+                    assert isinstance(parent_unit, Vertex)
                     self.addChild(parent_unit, person)
-
+            elif rels_values["type"] == Connection.VERTEX:
+                member_ids = rels_values['parents']
+                members = set()
+                for member_id in member_ids:
+                    member = self.getMember(int(member_id))
+                    assert isinstance(member, LinkedPerson)
+                    members.add(member)
+                vertex = self.addVertex(members, id_number)
+                direct_children_ids = rels_values["children"]
+                children = {self.getMember(id_num) for id_num in direct_children_ids if id_num in self.connection_dict.keys()}
+                self.addChildren(vertex, children)
+            else:
+                raise ValueError(f"Invalid type of {rels_values['type']}. "
+                                 f"Types must be {Connection.LINKED_PERSON} or {Connection.VERTEX}.")
 
     def createFamilyMember(self, first_name, last_name, birth, death):
         person_id = self.id_system.getPersonID()
@@ -144,30 +166,30 @@ class FamilyManager:
         person_connections = LinkedPerson(person_id, person_info)
         if self.root is None:
             self.root = person_connections
-        self.linked_person_dict[person_id] = person_connections
+        self.connection_dict[person_id] = person_connections
         return person_connections
 
-    def addCouple(self, lperson_1: LinkedPerson, lperson_2: LinkedPerson, couple_id=None):
-        if couple_id is None:
-            couple_id = self.id_system.getCoupleID(lperson_1.person_id, lperson_2.person_id)
-        couple = Couple(couple_id, {lperson_1, lperson_2})
-        self.linked_person_dict[couple_id] = couple
-        lperson_1.joinCouple(couple)
-        lperson_2.joinCouple(couple)
-        return couple
+    def addVertex(self, members: set[LinkedPerson], vertex_id=None):
+        if vertex_id is None:
+            vertex_id = self.id_system.getVertexID()
+        vertex = Vertex(vertex_id, members)
+        self.connection_dict[vertex_id] = vertex
+        for member in members:
+            member.addChildVertex(vertex)
+        return vertex
 
     @staticmethod
-    def addChild(parent_body: LinkedPerson, child: LinkedPerson):
-        parent_body.addChild(child)
-        child.addParent(parent_body)
+    def addChild(parent_vertex: Vertex, child: LinkedPerson):
+        parent_vertex.addChild(child)
+        child.addParentVertex(parent_vertex)
 
     @staticmethod
-    def addChildren(parent_body: LinkedPerson, children: set):
+    def addChildren(parent_body: Vertex, children: set[LinkedPerson]):
         for child in children:
             FamilyManager.addChild(parent_body, child)
 
     def getMember(self, id_number):
-        return self.linked_person_dict[id_number]
+        return self.connection_dict[id_number]
 
     def save(self, info_filepath, connections_filepath):
         self.write_family_info(info_filepath)
@@ -175,8 +197,8 @@ class FamilyManager:
 
     def write_family_info(self, filepath):
         info_list = []
-        for key, person in self.linked_person_dict.items():
-            if not isinstance(person, Couple):
+        for key, person in self.connection_dict.items():
+            if isinstance(person, LinkedPerson):
                 logging.debug(f"{key=} {person=}")
                 person_info_dict = asdict(person.info)
                 info_list.append(person_info_dict)
@@ -186,9 +208,14 @@ class FamilyManager:
             logging.info(f"Wrote family info to {filepath}")
 
     def writeFamilyConnections(self, filepath):
-        output: dict[int, LinkedPerson] = {}
-        for key, person in self.linked_person_dict.items():
-            output[key] = person.getRelations()
+        output: dict[int, dict] = {}
+        for key, connection in self.connection_dict.items():
+            if isinstance(connection, LinkedPerson):
+                output[key] = connection.getRelations()
+        for key, connection in self.connection_dict.items():
+            if isinstance(connection, Vertex):
+                output[key] = connection.getRelations()
+
         json_object = json.dumps(output, indent=4)
         with open(filepath, "w") as outfile:
             outfile.write(json_object)
@@ -196,30 +223,29 @@ class FamilyManager:
 
     def getBasicDict(self) -> dict[int, str]:
         output = {}
-        for key, person in self.linked_person_dict.items():
+        for key, person in self.connection_dict.items():
             output[key] = person.getName()
         return output
 
-def iterate_and_print(already_found, root: LinkedPerson):
-    already_found.add(root.getID())
-    for child in root.getChildren():
-        if child.getID() not in already_found:
-            iterate_and_print(already_found, child)
-    if isinstance(root, Couple):
-        for member in root.getMembers():
+def iterate_and_print(already_found, connection: Connection):
+    already_found.add(connection.getID())
+    if isinstance(connection, Vertex):
+        for member in connection.getParents():
             if member.getID() not in already_found:
                 iterate_and_print(already_found, member)
-        return
+        for child in connection.getChildren():
+            if child.getID() not in already_found:
+                iterate_and_print(already_found, child)
+    elif isinstance(connection, LinkedPerson):
+        logging.info((connection, already_found))
+        for vertex in connection.getVertices():
+            if vertex.getID() not in already_found:
+                iterate_and_print(already_found, vertex)
+        parent = connection.getParent()
+        if parent is not None and parent.getID() not in already_found:
+            iterate_and_print(already_found, parent)
 
-    logging.info(root, already_found)
-    for couple in root.getCouples():
-        if couple.getID() not in already_found:
-            iterate_and_print(already_found, couple)
-    parent = root.getParent()
-    if parent is not None and parent.getID() not in already_found:
-        iterate_and_print(already_found, parent)
-
-def stringToDate(input):
+def stringToDate(input: str):
     match len(input.split('-')):
         case 3:
             pass
@@ -241,6 +267,18 @@ def stringToDate(input):
     date_time = EventDate(year, month, day)
     return date_time
 
+def addVertexWithInput(manager: FamilyManager):
+    print(f"Current tree: {manager.getBasicDict()}")
+    raw_head_ids = input("Select id(s) of head(s) of family unit. If 2 people, separate with a comma (ex. '3,7')")
+    head_ids = raw_head_ids.split(',')
+    heads = [manager.getMember(int(head_id)) for head_id in head_ids]
+    vertex = manager.addVertex(heads)
+
+    is_children = input("Would you like to add children to this family unit? (Y/N)")
+    if is_children.lower() not in ('y', 'yes'):
+        return vertex
+    
+
 def addMemberWithInput(manager: FamilyManager):
     first = input("What is this person's first name? ")
     last = input("What is this person's last name? ")
@@ -252,24 +290,29 @@ def addMemberWithInput(manager: FamilyManager):
         dod = None
     else:
         dod = stringToDate(dod_raw)
-
     member = manager.createFamilyMember(first, last, dob, dod)
-    print(f"Current tree: {manager.getBasicDict()}")
-    if member != manager.root:
-        relation_id = int(input("What is the ID of the family member to relate to? "))
-        related_member = manager.getMember(relation_id)
-        relation_type = input(f"How is {first} {last} related to {manager.linked_person_dict[relation_id].getName()}?\n"
-                              f"Relationship options are child, spouse, and parent. ")
-        match relation_type:
-            case "child":
-                manager.addChild(related_member, member)
-            case "spouse":
-                manager.addCouple(member, related_member)
-            case "parent":
-                manager.addChild(member, related_member)
-            case _:
-                raise ValueError(f"Input must be child, spouse, or parent. Input \"{relation_type}\" is not allowed")
-    logging.info(f"Family member {first} {last} successfully added to the tree.")
+    return member
+
+    # join_connection = input("Join as a child of an existing family unit? (Y/N)")
+    # if join_connection.lower() not in ('y', 'yes'):
+    #     return member
+    #
+    # print(f"Current tree: {manager.getBasicDict()}")
+    # if member != manager.root:
+    #     relation_id = int(input("What is the ID of the family member to relate to? "))
+    #     related_member = manager.getMember(relation_id)
+    #     relation_type = input(f"How is {member.getName()} related to {manager.connection_dict[relation_id].getName()}?\n"
+    #                           f"Relationship options are child, spouse, and parent. ")
+    #     match relation_type:
+    #         case "child":
+    #             manager.addChild(related_member, member)
+    #         case "spouse":
+    #             manager.addVertex(member, related_member)
+    #         case "parent":
+    #             manager.addChild(member, related_member)
+    #         case _:
+    #             raise ValueError(f"Input must be child, spouse, or parent. Input \"{relation_type}\" is not allowed")
+    # logging.info(f"Family member {first} {last} successfully added to the tree.")
 
 def test_manual_create():
     info_filename = os.path.join(os.getcwd(), "taraporevalas_info.json")
@@ -280,7 +323,7 @@ def test_manual_create():
         manager = FamilyManager((info_filename, connections_filename))
 
     while(True):
-        todo = input(f"Type 's' to save tree, 'v' to view tree, 'a' to add to tree, or 'q' to quit")
+        todo = input(f"Type 's' to save tree, 'v' to view tree, 'a' to add to tree, or 'q' to quit ")
         match todo:
             case 's':
                 manager.save(info_filename, connections_filename)
@@ -295,34 +338,34 @@ def test_manual_create():
             case _:
                 logging.warning("Incorrect input. Please input either 's', 'v', 'a', or 'q'.")
 
-def test():
-    info_filename = os.path.join(os.getcwd(), "sample.json")
-    connections_filename = os.path.join(os.getcwd(), "test.json")
+def test_write_to_file():
+    info_filename = os.path.join(os.getcwd(), "test_info.json")
+    connections_filename = os.path.join(os.getcwd(), "test_connections.json")
     manager = FamilyManager()
-    tom = manager.createFamilyMember("Tom", "Jones", EventDate(1950, 4, 12), None)
+    tom = manager.createFamilyMember("Tom", "Jones", EventDate(1950, 4, 12), EventDate(2015, 3, 16))
     linda = manager.createFamilyMember("Linda", "Adams", EventDate(1950, 4, 12), None)
     suzan = manager.createFamilyMember("suzan", "Jones", EventDate(1980, 4, 12), None)
     gerald = manager.createFamilyMember("gerald", "Jones", EventDate(1983, 5, 12), None)
 
-    tom_linda = manager.addCouple(tom, linda)
+    tom_linda = manager.addVertex({tom, linda})
     manager.addChildren(tom_linda, {suzan, gerald})
 
     root: LinkedPerson = manager.root
     iterate_and_print(set(), suzan)
 
-    manager.write_family_info(info_filename)
-    manager.writeFamilyConnections(connections_filename)
+    manager.save(info_filename, connections_filename)
 
 def test_read_from_file():
-    info_filename = os.path.join(os.getcwd(), "sample.json")
-    connections_filename = os.path.join(os.getcwd(), "test.json")
+    info_filename = os.path.join(os.getcwd(), "test_info.json")
+    connections_filename = os.path.join(os.getcwd(), "test_connections.json")
     manager = FamilyManager(import_filenames=(info_filename, connections_filename))
     logging.debug(manager.getBasicDict())
-    manager.write_family_info(os.path.join(os.getcwd(), "sample_1.json"))
-    manager.writeFamilyConnections(os.path.join(os.getcwd(), "test_1.json"))
+    info_filename = os.path.join(os.getcwd(), "test_info_1.json")
+    connections_filename = os.path.join(os.getcwd(), "test_connections_1.json")
+    manager.save(info_filename, connections_filename)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    #test()
-    #test_read_from_file()
-    test_manual_create()
+    #test_write_to_file()
+    test_read_from_file()
+    #test_manual_create()
