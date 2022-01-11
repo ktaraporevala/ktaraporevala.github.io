@@ -272,6 +272,8 @@ def addVertexWithInput(manager: FamilyManager):
     raw_head_ids = input("Select id(s) of head(s) of family unit. If 2 people, separate with a comma (ex. '3,7')")
     head_ids = raw_head_ids.split(',')
     heads = [manager.getMember(int(head_id)) for head_id in head_ids]
+    for head in heads:
+        assert isinstance(head, LinkedPerson)
     vertex = manager.addVertex(heads)
 
     is_children = input("Would you like to add children to this family unit? (Y/N)")
@@ -367,5 +369,5 @@ def test_read_from_file():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     #test_write_to_file()
-    test_read_from_file()
-    #test_manual_create()
+    #test_read_from_file()
+    test_manual_create()
