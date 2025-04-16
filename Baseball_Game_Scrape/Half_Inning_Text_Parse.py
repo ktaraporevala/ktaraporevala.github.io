@@ -55,9 +55,7 @@ class Half_Inning:
         logging.debug(f"{player_name} is out")
         self.outs += 1
         if player_name in self.on_base.keys():
-            player = self.on_base.pop(player_name)
-            player.player_out()
-
+            self.on_base.pop(player_name)
 
     def player_scored(self, player_name):
         logging.debug(f"{player_name} scored")

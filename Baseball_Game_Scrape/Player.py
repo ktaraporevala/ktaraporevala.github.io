@@ -1,19 +1,21 @@
 import logging
 
 BASE_DICT = {0: "nowhere", 1: "first", 2: "second", 3: "third", 4: "home"}
+POSITIONS = {}
 
 class Player:
 
-    def __init__(self, name: str, score_fn):
-        self.name = name
+    def __init__(self, player_id: str, player_name: str, position: int):
+        self.id = player_id
+        self.name = player_name
+        self.position = position
         self.base_dict = {}
         self.current_base = None
-        self.score_fn = score_fn
-        logging.debug(f"Hitter {name} created")
+        logging.debug(f"Player {player_name} created")
 
-    @staticmethod
-    def format_player_name(name: str):
-        return name.upper()
+    def player_out(self):
+        self.base_dict = {}
+        self.current_base = None
 
     def batter_event(self, bases, bases_credit_max):
         self.current_base = bases
@@ -21,6 +23,7 @@ class Player:
         self.base_dict[self.name] = bases_credit
         logging.debug(f"Player {self.name} batted and is now on {BASE_DICT[bases]} with {bases_credit} bases of credit")
 
+    # TODO rework this function
     def player_replaced(self, new_name):
         self.name = new_name
         self.base_dict[new_name] = 0
