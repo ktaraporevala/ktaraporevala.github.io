@@ -1,0 +1,51 @@
+Events which give batter bases
+Singled to xxxxxx
+doubled to xxxxxxxxxx
+tripled to xxxxxxx
+walked
+was walked intentionally
+reached on an error by xxx                    (errors no credit?)
+
+Events which give runner bases
+stole second                                 (can be combined into multiple events with "and") #TODO
+stole third
+stole home
+
+Outs
+struck out
+grounded out                                (can be preceded by "On a bunt") #TODO
+was called out on strikes
+lined to xxxx
+flied to xxxxx
+popped to xxxx in foul territory
+grounded into a double play
+lined out on a sacrifice fly to center          (gets credit for bases)
+
+Fielder’s Choice
+forced xxxx                                                    (treat like hit?)
+
+Replace player
+BATTED FOR XXXXXXX
+RAN FOR XXXXXXX
+
+Runner out
+[xxxxx out at second
+was picked off and caught stealing second
+
+Runner movement
+[xxxx to first, xxx to second, xxx to third, xxxx scored, xxxxx scored (unearned), xxxx scored (unearned, but earned for the pitcher)]
+
+Ignore
+XXXX REPLACED XXXX (PITCHING)       (can be ignored)
+STAYED IN GAME (PLAYING LF)               (I think can be ignored)
+
+
+
+
+
+
+
+
+
+
+(xxxx xxxxx xxxx)                                            (so far can be ignored)

@@ -1,51 +1,38 @@
-Events which give batter bases
-Singled to xxxxxx
-doubled to xxxxxxxxxx
-tripled to xxxxxxx
-walked
-was walked intentionally
-reached on an error by xxx                    (errors no credit?)
+Base codes involving batter
+#...         (forms of outs)
+ C/E%         (interference)
+ S$           (single, $ is optional)
+ D$           (double)
+ T$           (triple)
+ DGR          (ground rule double)
+E$ or $E$    (error allowing batter to get on base)
+ FC$          (fielder's choice, batter to first)
+ FO$          (force out, seems like above, batter to first)
+ FLE$         (error on foul fly ball, can be ignored)
+ H or HR      (home run leaving the park)
+ H$ or HR$    (inside the park home run)
+ HP           (hit by pitch, batter to first)
+ K            (strikeout)
+K+event      (strikeout and more, can be SB%, CS%, OA, PO%, PB, WP and E$)
+ NP           (no play, can be ignored)
+ I or IW      (intentional walk, batter to first)
+ W            (walk, batter to first)
+W+event      (walk and more, can be SB%, CS%, PO%, PB, WP and E$)
 
-Events which give runner bases
-stole second                                 (can be combined into multiple events with "and") #TODO
-stole third
-stole home
-
-Outs
-struck out
-grounded out                                (can be preceded by "On a bunt") #TODO
-was called out on strikes
-lined to xxxx
-flied to xxxxx
-popped to xxxx in foul territory
-grounded into a double play
-lined out on a sacrifice fly to center          (gets credit for bases)
-
-Fielder’s Choice
-forced xxxx                                                    (treat like hit?)
-
-Replace player
-BATTED FOR XXXXXXX
-RAN FOR XXXXXXX
-
-Runner out
-[xxxxx out at second
-was picked off and caught stealing second
-
-Runner movement
-[xxxx to first, xxx to second, xxx to third, xxxx scored, xxxxx scored (unearned), xxxx scored (unearned, but earned for the pitcher)]
-
-Ignore
-XXXX REPLACED XXXX (PITCHING)       (can be ignored)
-STAYED IN GAME (PLAYING LF)               (I think can be ignored)
+Base codes not involving batter (batter still player_id)
+BK           (balk)
+ CS%($$)      (caught stealing, % is base runner was tryna get to)
+DI           (defensive indifference, steal basically but should be treated different?)
+OA           (other runner advance not covered by codes, may be out)
+ PB           (passed ball)
+ WP           (wild pitch)
+ PO%($$)      (picked off of base, % is base of runner picked off)
+PO%(E$)      (attempted pickoff error)
+ POCS%($$)    (pickoff caught stealing, % is base runner was tryna)
+ SB%          (stolen base, % is base tryna)
 
 
-
-
-
-
-
-
-
-
-(xxxx xxxxx xxxx)                                            (so far can be ignored)
+Advancement codes   (starts with .)
+#-#        (first # is initial base, second # is final base)
+#-#;#-#    (can be multiple)
+B-#        (batter advancement, so far looks like can be ignored if to first)
