@@ -77,8 +77,6 @@ class Game_Info:
     def player_scored(self, credit_dict: dict, team: int):
         assert sum(credit_dict.values()) == 4
         score_dict = self.score_dicts[team]
-        if None in credit_dict.keys():
-            credit_dict[self.teams[(team+1) % 2]] = credit_dict.pop(None)
         for player in credit_dict.keys():
             if player not in score_dict.keys():
                 score_dict[player] = 0
