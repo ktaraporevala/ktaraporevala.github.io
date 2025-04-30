@@ -25,7 +25,7 @@ class Season:
                 team = int(play[2])
                 if cur_team != team or cur_inning != inning:
                     if cur_half_inning is not None:
-                        #assert cur_half_inning.outs == 3
+                        assert cur_half_inning.outs == 3
                         cur_half_inning.end_half_inning()
                     logging.debug(f"\nInning: {inning}, Team: {team}")
                     cur_half_inning = Half_Inning(game_info, inning, team)
@@ -43,6 +43,7 @@ class Season:
 
     def run_games(self, game_list: [int]):
         for game_num in game_list:
+            logging.info(f"Running game number {game_num}")
             credit_dicts = self.run_game(game_num)
             for credit_dict in credit_dicts:
                 for player in credit_dict.keys():

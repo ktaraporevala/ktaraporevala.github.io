@@ -3,7 +3,7 @@ import logging
 POSITIONS = {}
 
 class Player:
-    BASE_DICT = {0: "nowhere", 1: "first", 2: "second", 3: "third", 4: "home"}
+    BASE_DICT = {0: "batting", 1: "first", 2: "second", 3: "third", 4: "home"}
 
     def __init__(self, player_id: str, player_name: str, position: int, team: int, order_spot: int):
         self.id = player_id
