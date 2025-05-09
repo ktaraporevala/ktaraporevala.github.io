@@ -47,15 +47,15 @@ class Half_Inning:
                     continue
                 player.advance(bases_advanced)
                 if cur_base == 0:
-                    error_credit = min(bases_advanced, play.num_errors)
+                    error_credit = min(bases_advanced, play.error_credits[cur_base])
                     hitter_credit = bases_advanced - error_credit
                     if play.fielders_choice_credit is not None:  # runner out gets credit for advancing hitter on FC
                         player_id = self.on_base[play.fielders_choice_credit]
                     player.credit_player(error_id, error_credit)
                     player.credit_player(player_id, hitter_credit)
                 else:
-                    hitter_credit = min(bases_advanced, play.hitter_max_credit)
-                    error_credit = min(bases_advanced - hitter_credit, play.num_errors)
+                    error_credit = min(bases_advanced, play.error_credits[cur_base])
+                    hitter_credit = min(bases_advanced - error_credit, play.hitter_max_credit)
                     runner_credit = bases_advanced - error_credit - hitter_credit
                     player.credit_player(error_id, error_credit)
                     player.credit_player(play.hitter_id, hitter_credit)
