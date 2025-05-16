@@ -17,12 +17,11 @@ class Season:
             self.credit_dicts[team_id] = {}
 
     def get_rg_csv(self, include_extras=False, delimeter=','):
-        rg_csv = ""
+        rg_csv = "Team,Player,Runs Generated\n"
         for team_id in self.credit_dicts.keys():
             credit_dict = self.credit_dicts[team_id]
+            team_name = self.info.lookup_name(team_id)[0]
             team_credit = 0
-            players_row = ""
-            credits_row = ""
             players = credit_dict.keys()
             players_sorted = sorted(players, key=lambda player_id: credit_dict[player_id], reverse=True)
             for player_id in players_sorted:
@@ -30,10 +29,8 @@ class Season:
                 name, is_player = self.info.lookup_name(player_id)
                 if include_extras or is_player:
                     team_credit += credit
-                    players_row += name + delimeter
-                    credits_row += str(credit) + delimeter
-            team_row = self.info.lookup_name(team_id)[0] + delimeter + str(team_credit)
-            rg_csv += team_row + '\n' + players_row[:-len(delimeter)] + '\n' + credits_row[:-len(delimeter)] + '\n'
+                    rg_csv += f"{team_name},{name},{credit}\n"
+            rg_csv += f",{team_name} total,{team_credit}\n"
         return rg_csv
 
     def get_rg_readable(self, include_extras=False):
@@ -134,7 +131,7 @@ def main():
     time.sleep(0.1)
     print(season.get_rg_readable())
     print()
-    print(season.get_rg_csv())
+    print(season.get_rg_csv(include_extras=True))
 
 if __name__ == "__main__":
     main()
