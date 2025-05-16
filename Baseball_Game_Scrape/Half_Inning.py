@@ -3,12 +3,12 @@ import re
 
 from Play import Play
 from Player import Player
-from Game_Info import Game_Info
+from Info import GameInfo
 
 
 class Half_Inning:
 
-    def __init__(self, game_info: Game_Info, inning: int, team: int):
+    def __init__(self, game_info: GameInfo, inning: int, team: int):
         self.outs = 0
         self.on_base: [str] = [""]*4
         self.team = team
