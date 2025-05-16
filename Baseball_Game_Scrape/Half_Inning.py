@@ -17,6 +17,9 @@ class Half_Inning:
 
         self.lineup = game_info.lineups[team]
 
+    def get_outs(self):
+        return self.outs
+
     def player_out(self, base: int):
         player: Player = self.game_info.get_player(self.on_base[base])
         logging.debug(f"{player.name} is out")
@@ -47,14 +50,20 @@ class Half_Inning:
                     continue
                 player.advance(bases_advanced)
                 if cur_base == 0:
-                    error_credit = min(bases_advanced, play.error_credits[cur_base])
+                    hitter_credit_floor = min(bases_advanced, play.hitter_max_credit//1)
+                    error_credit = min(bases_advanced-hitter_credit_floor, play.error_credits[cur_base])
                     hitter_credit = bases_advanced - error_credit
-                    if play.fielders_choice_credit is not None:  # runner out gets credit for advancing hitter on FC
-                        player_id = self.on_base[play.fielders_choice_credit]
+                    if play.fielders_choice_credit is not None:  # runner out gets credit for advancing hitter to
+                        # first on FC
+                        fc_player_id = self.on_base[play.fielders_choice_credit]
+                        hitter_credit -= 1
+                        assert hitter_credit >= 0
+                        player.credit_player(fc_player_id, 1)
                     player.credit_player(error_id, error_credit)
                     player.credit_player(player_id, hitter_credit)
                 else:
-                    error_credit = min(bases_advanced, play.error_credits[cur_base])
+                    hitter_credit_floor = min(bases_advanced, play.hitter_max_credit//1)
+                    error_credit = min(bases_advanced - hitter_credit_floor, play.error_credits[cur_base])
                     hitter_credit = min(bases_advanced - error_credit, play.hitter_max_credit)
                     runner_credit = bases_advanced - error_credit - hitter_credit
                     player.credit_player(error_id, error_credit)
@@ -101,4 +110,10 @@ class Half_Inning:
             for i in range(len(self.on_base)):
                 if self.on_base[i] == replaced_player_id:
                     self.on_base[i] = player.id
-
+        elif event_list[0] == "radj":
+            player_id = event_list[1]
+            base = int(event_list[2])
+            self.on_base[base] = player_id
+            player = self.game_info.get_player(player_id)
+            player.advance(base)
+            player.credit_player("manfredrob", base)

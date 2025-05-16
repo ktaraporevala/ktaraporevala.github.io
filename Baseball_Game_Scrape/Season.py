@@ -13,13 +13,17 @@ class Season:
     def run_season(self):
         for root, dirs, files in os.walk(self.folder_path):
             for file in files:
-                logging.info(file[-4:])
-                if file[-4:].lower() == ".evn":
+                if file[-4:].lower() in (".evn", ".eva"):
+                    logging.info(f"Reading file {file}")
                     file_path = os.path.join(root, file)
                     team_season = Team_Season(file_path)
                     team_season.run_games()
                     for team in team_season.game_counts.keys():
-                        if team not in self.credit_dicts:
+                        if team not in self.game_counts.keys():
+                            self.game_counts[team] = 0
+                        self.game_counts[team] += team_season.game_counts[team]
+
+                        if team not in self.credit_dicts.keys():
                             self.credit_dicts[team] = {}
                         credit_dict = team_season.credit_dicts[team]
                         for player_id in credit_dict.keys():
@@ -45,24 +49,29 @@ class Team_Season:
         game_info = Game_Info(game_text)
 
         cur_half_inning: Half_Inning = None
-        cur_team = -1
-        cur_inning = 0
+        cur_team = 0
+        cur_inning = 1
 
         for play_or_sub in game_info.play_list:
             if play_or_sub.startswith("play,"):
                 play = play_or_sub.split(",")
                 inning = int(play[1])
                 team = int(play[2])
-                if cur_team != team or cur_inning != inning:
-                    if cur_half_inning is not None:
-                        assert cur_half_inning.outs == 3
-                        cur_half_inning.end_half_inning()
+                assert cur_team == team
+                assert cur_inning == inning
+                if cur_half_inning is None:
                     logging.debug(f"\nInning: {inning}, Team: {team}")
+                    cur_inning = inning
+                    cur_team = team
                     cur_half_inning = Half_Inning(game_info, inning, team)
-                    assert cur_inning == inning or cur_inning == inning-1
-                cur_inning = inning
-                cur_team = team
             cur_half_inning.parse_event(play_or_sub)
+            if cur_half_inning.get_outs() == 3:
+                cur_half_inning.end_half_inning()
+                cur_inning = cur_inning + cur_team
+                cur_team = (cur_team + 1) % 2
+                logging.debug(f"\nInning: {cur_inning}, Team: {cur_team}")
+                cur_half_inning = Half_Inning(game_info, cur_inning, cur_team)
+                # TODO fix assumption that home team always bats second
 
         logging.info(f"Away team scored {sum(game_info.score_dicts[0].values())} runs. Credit summary: {game_info.score_dicts[0]}")
         logging.info(f"Home team scored {sum(game_info.score_dicts[1].values())} runs. Credit summary: {game_info.score_dicts[1]}")
@@ -96,12 +105,14 @@ class Team_Season:
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
-    sfg_2024_filepath = r"C:\Users\ktara\Downloads\2024eve\2024SFN.EVN"
+    # logging.basicConfig(level=logging.DEBUG)
+    # test_filepath = r"C:\Users\ktara\Downloads\2024eve\2024HOU.EVA"
+    # test_season = Team_Season(test_filepath)
+    # test_season.run_game(33)
+
+    logging.basicConfig(level=logging.INFO)
+
     folder_2024 = r"C:\Users\ktara\Downloads\2024eve"
-    # test_season = Team_Season(sfg_2024_filepath)
-    # test_season.run_games(None)
-    #test_season.run_game(7)
     season = Season(folder_2024)
     season.run_season()
 

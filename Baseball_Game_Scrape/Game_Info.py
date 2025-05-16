@@ -58,7 +58,7 @@ class Game_Info:
         logging.debug(f"Home lineup is {self.lineups[1]}")
 
     def section_innings(self, full_text):
-        self.play_list = [text for text in full_text if text.startswith("play,") or text.startswith("sub,")]
+        self.play_list = [text for text in full_text if text.startswith("play,") or text.startswith("sub,") or text.startswith("radj,")]
 
     def get_player(self, player_id: str) -> Player:
         return self.player_dict[player_id]
@@ -81,4 +81,4 @@ class Game_Info:
             if player not in score_dict.keys():
                 score_dict[player] = 0
             score_dict[player] += credit_dict[player] / 4
-            logging.info(f"Player {player} gets credit for {credit_dict[player] / 4} runs")
+            logging.debug(f"Player {player} gets credit for {credit_dict[player] / 4} runs")

@@ -15,6 +15,9 @@ class Player:
         self.current_base = 0
         logging.debug(f"Player {self.name} created (id: {self.id})")
 
+    def __str__(self):
+        return f"{self.name} - team: {self.team}, id: {self.id}"
+
     def clear_player(self):
         self.base_dict = {}
         self.current_base = 0
