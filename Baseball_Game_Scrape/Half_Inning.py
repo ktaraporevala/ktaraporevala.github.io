@@ -4,6 +4,7 @@ import re
 from Play import Play
 from Player import Player
 from Info import GameInfo
+from Info import SeasonInfo
 
 
 class Half_Inning:
@@ -11,11 +12,10 @@ class Half_Inning:
     def __init__(self, game_info: GameInfo, inning: int, team: int):
         self.outs = 0
         self.on_base: [str] = [""]*4
+        assert team in (0, 1)
         self.team = team
         self.game_info = game_info
         self.events = None
-
-        self.lineup = game_info.lineups[team]
 
     def get_outs(self):
         return self.outs
@@ -91,8 +91,15 @@ class Half_Inning:
             self.player_scored(player_id)
         self.on_base = new_bases
 
+    @staticmethod
+    def clean_event_text(text: str):
+        for item_to_remove in Play.REMOVE_FROM_PLAY:
+            text = text.replace(item_to_remove, "")
+        return text
+
     def parse_event(self, event_text: str):
         logging.debug(f"Reading: {event_text}")
+        event_text = Half_Inning.clean_event_text(event_text)
         event_list = event_text.split(",")
         if event_list[0] == "play":
             play: Play = Play(event_list)
@@ -100,7 +107,7 @@ class Half_Inning:
                 self.on_base[0] = play.hitter_id
             else:
                 assert self.on_base[0] == play.hitter_id
-            assert [] != [player for player in self.lineup if player.id == play.hitter_id]  # check hitter in lineup
+            assert self.game_info.in_lineup(player_id=play.hitter_id, team=self.team)
             play.run_play()
             self.assign_credit(play)
             self.advance_runners(play)
@@ -116,4 +123,4 @@ class Half_Inning:
             self.on_base[base] = player_id
             player = self.game_info.get_player(player_id)
             player.advance(base)
-            player.credit_player("manfredrob", base)
+            player.credit_player(SeasonInfo.MANFRED_ID, base)

@@ -4,12 +4,12 @@ import re
 
 class Play:
 
-    OUTS = ["K", "\d+"]
+    OUTS = ["K", "K2\d*", "\d+"]
     DOUBLE_PLAYS = ["\d+\(\d\)\d+"]
     TRIPLE_PLAYS = ["\d+\(\d\)\d+\(\d\)\d+"]
     FIELDERS_CHOICES = ["FC[1-9]?"]
     FORCE_OUTS = ["\d+\([1-3]\)", "\d+\([B|1-3]\)\d+\([B|1-3]\)"]
-    HITS = {"S[1-9]*": 1, "D[1-9]*": 2, "T[1-9]*": 3, "H[1-9]*": 4, "HR[1-9]*": 4, "DGR": 2}
+    HITS = {"S[1-9]*": 1, "D[1-9]*": 2, "T[1-9]*": 3, "H[1-9]*": 4, "HR[1-9]*": 4, "DGR\d?": 2}
     WALKS = {"W": 1, "I": 1, "IW": 1, "HP": 1}
     ERRORS = ["[1-9]*E[1-9]", "C"]
 
@@ -22,12 +22,14 @@ class Play:
     STEALS = {"SB[2|3|H]": -1}
     DEFENSIVE_INDIFFERENCE = {"DI"}
 
-    BASE_MOTIONS = ["[B|1-3]-[1-3|H](\([^E]+\))*"]
-    BASE_OUTS = ["[B|1-3]X[1-3|H](\(\d+\))?"]
+    BASE_MOTIONS = ["[B|1-3]-[1-3|H](\((TH[1-3|H]?|WP|PB)\))?"]  # If batter advances on throw, they get full credit for extra bases
+    BASE_OUTS = ["[B|1-3]X[1-3|H](\([\d|U]+\))?"]
     BASE_OUTS_AFTER_ERRORS = ["[B|1-3]X[1-3|H]\(\d+\)\(\d*E\d.*\)"]
     BASE_ERRORS = {"[B|1-3]X[1-3|H](\(\d*E\d.*\))": 'X', "[B|1-3]-[1-3|H](\(\d*E\d.*\))": '-'}
 
     IGNORES = ["NP", "FLE[1-9]", "OA"]
+
+    REMOVE_FROM_PLAY = ["!", "(UR)", "(NR)", "(RBI)", "(NORBI)", "(TUR)"]
 
     def __init__(self, play_list: [str]):
         self.error_credits: [int] = [0]*4
@@ -105,13 +107,13 @@ class Play:
                         runner_starting_base_str = '4'
                     runner_base = int(runner_starting_base_str) + \
                                   Play.STEAL_ERRORS[event]
+                    self.advancements[runner_base] += 1
                 elif "PO" in event:
                     runner_base = int(play[play.find("PO") + 2]) + \
                                   Play.STEAL_ERRORS[event]
                 else:
                     raise NotImplementedError(f"Cannot handle event {event}")
                 self.error_credits = [num + 1 for num in self.error_credits]
-                self.advancements[runner_base] += 1
                 assert not self.is_processed
                 self.is_processed = True
                 logging.debug(f"Play is an error on a steal or attempted pickoff")
@@ -305,7 +307,7 @@ class Play:
             self.check_hitter_events(play)
             self.check_independent_runner_events(play)
             if not self.is_processed:
-                raise NotImplementedError(f"{self.basic_play} not recognized")
+                raise NotImplementedError(f"{play} not recognized")
             self.is_processed = False
         if self.runner_movements is not None:
             self.check_dependent_running_events()

@@ -4,10 +4,12 @@ from Player import Player
 
 class LeagueInfo:
     AMERICAN = 'A'
+    AMERICAN1 = 'AL'
     NATIONAL = 'N'
+    NATIONAL1 = 'NL'
     FEDERAL = 'F'
     NEGRO = 'R'
-    LEAGUES = (AMERICAN, NATIONAL, FEDERAL, NEGRO)
+    LEAGUES = (AMERICAN, AMERICAN1, NATIONAL, NATIONAL1, FEDERAL, NEGRO)
 
 
 class TeamInfo:
@@ -99,7 +101,10 @@ class GameInfo:
 
         self.teams[0] = info_dict["visteam"]
         self.teams[1] = info_dict["hometeam"]
-        self.game_type = info_dict["gametype"]
+        if "gametype" in info_dict.keys():
+            self.game_type = info_dict["gametype"]
+        else:
+            self.game_type = "regular"
         self.date = info_dict["date"]
         if info_dict["number"] != 0:
             self.date += f"_{info_dict['number']}"
@@ -128,7 +133,10 @@ class GameInfo:
         logging.debug(f"Home lineup is {self.lineups[1]}")
 
     def section_innings(self, full_text):
-        self.play_list = [text for text in full_text if text.startswith("play,") or text.startswith("sub,") or text.startswith("radj,")]
+        self.play_list = [text for text in full_text if text.startswith("play,")
+                          or text.startswith("sub,")
+                          or text.startswith("radj,")
+                          or text.startswith("com,")]
 
     def get_player(self, player_id: str) -> Player:
         return self.player_dict[player_id]
@@ -152,3 +160,10 @@ class GameInfo:
                 score_dict[player] = 0
             score_dict[player] += credit_dict[player] / 4
             logging.debug(f"Player {player} gets credit for {credit_dict[player] / 4} runs")
+
+    def in_lineup(self, player_id, team):
+        for player in self.lineups[team]:
+            if player is not None and player.id == player_id:
+                return True
+        return False
+
