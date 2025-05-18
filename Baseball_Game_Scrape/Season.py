@@ -2,8 +2,8 @@ import time
 import os
 import pandas as pd
 
-from Half_Inning import Half_Inning
-from Info import GameInfo, TeamInfo, LeagueInfo, SeasonInfo
+from Game import Game
+from Info import TeamInfo, LeagueInfo, SeasonInfo
 import logging
 
 class Season:
@@ -46,42 +46,16 @@ class Season:
             self.run_game(game_texts[game_num])
 
     def run_game(self, game_text: str):
-        game_info = GameInfo(game_text, self.info)
+        game = Game(game_text, self.info.player_encountered)
+        game.run_game()
 
-        cur_half_inning: Half_Inning = None
-        cur_team = 0
-        cur_inning = 1
+        logging.debug(f"Away team scored {sum(game.score_dicts[0].values())} runs. Credit summary: "
+                      f"{game.score_dicts[0]}")
+        logging.debug(f"Home team scored {sum(game.score_dicts[1].values())} runs. Credit summary: "
+                      f"{game.score_dicts[1]}")
+        self.assign_game_credit(game)
 
-        for play_or_sub in game_info.play_list:
-            if play_or_sub.startswith("play,"):
-                play = play_or_sub.split(",")
-                inning = int(play[1])
-                team = int(play[2])
-                assert cur_team == team
-                assert cur_inning == inning
-                if cur_half_inning is None:
-                    logging.debug(f"\nInning: {inning}, Team: {team}")
-                    cur_inning = inning
-                    cur_team = team
-                    cur_half_inning = Half_Inning(game_info, inning, team)
-            if play_or_sub.startswith("com,") and cur_half_inning is None:
-                continue
-            cur_half_inning.parse_event(play_or_sub)
-            if cur_half_inning.get_outs() == 3:
-                cur_half_inning.end_half_inning()
-                cur_inning = cur_inning + cur_team
-                cur_team = (cur_team + 1) % 2
-                logging.debug(f"\nInning: {cur_inning}, Team: {cur_team}")
-                cur_half_inning = Half_Inning(game_info, cur_inning, cur_team)
-                # TODO fix assumption that home team always bats second
-
-        logging.debug(f"Away team scored {sum(game_info.score_dicts[0].values())} runs. Credit summary: "
-                      f"{game_info.score_dicts[0]}")
-        logging.debug(f"Home team scored {sum(game_info.score_dicts[1].values())} runs. Credit summary: "
-                      f"{game_info.score_dicts[1]}")
-        self.assign_game_credit(game_info)
-
-    def assign_game_credit(self, game_info: GameInfo):
+    def assign_game_credit(self, game_info: Game):
         for i in range(2):
             team = game_info.teams[i]
 

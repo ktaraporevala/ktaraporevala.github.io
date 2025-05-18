@@ -2,7 +2,17 @@ import logging
 import re
 
 
-class Play:
+class PlayType:
+    # Headers
+
+    PLAY = "play"
+    SUBSTITUTION = "sub"
+    RUNNER_ADJUSTMENT = "radj"
+    COMMENT = "com"
+    INFO = "info"
+    STARTING_LINEUP = "start"
+
+    # Regex Matches
 
     OUTS = ["K", "K2\d*", "\d+"]
     DOUBLE_PLAYS = ["\d+\(\d\)\d+"]
@@ -16,7 +26,8 @@ class Play:
     BALKS = ["BK"]
     WILD_OR_PASSEDS = ["WP", "PB"]
     STEAL_ERRORS = {"PO[1-3]\([1-9]?E[1-9].*\)": 0, "CS[2|3|H]\([1-9]+E[1-9]+\)": -1,
-                    "CS[2|3|H]\(E[1-9].*\)": -1, "POCS[2|3|H]\([1-9]*E[1-9].*\)": -1}  # value is what to add to get starting base of runner
+                    "CS[2|3|H]\(E[1-9].*\)": -1,
+                    "POCS[2|3|H]\([1-9]*E[1-9].*\)": -1}  # value is what to add to get starting base of runner
     ISOLATED_RUNNER_OUTS = {"CS[2|3|H]\([1-9]+\)": -1, "POCS[2|3|H]\([1-9]+\)": -1,
                             "PO[1-3]\([1-9]+\)": 0}  # value is what to add to get starting base of runner
     STEALS = {"SB[2|3|H]": -1}
@@ -31,8 +42,11 @@ class Play:
 
     REMOVE_FROM_PLAY = ["!", "(UR)", "(NR)", "(RBI)", "(NORBI)", "(TUR)"]
 
+
+class Play:
+
     def __init__(self, play_list: [str]):
-        self.error_credits: [int] = [0]*4
+        self.error_credits: [int] = [0] * 4
         self.hitter_max_credit: int = 0
         self.advancements = [i for i in range(4)]
         self.is_processed = False
@@ -49,7 +63,7 @@ class Play:
         self.modifiers: [str] = []
         if '.' in self.basic_play:
             index_run = self.basic_play.find('.')
-            running_extension_text = self.basic_play[index_run+1:]
+            running_extension_text = self.basic_play[index_run + 1:]
             self.runner_movements = running_extension_text.split(";")
             self.basic_play = self.basic_play[:index_run]
         count_parentheses = 0
@@ -64,13 +78,13 @@ class Play:
             elif play_char == ')':
                 count_parentheses -= 1
         if first_separator is not None:
-            modifiers_text = self.basic_play[first_separator+1:]
-            self.modifiers = modifiers_text.split("/")  # TODO use modifiers to read double plays,
+            modifiers_text = self.basic_play[first_separator + 1:]
+            self.modifiers = modifiers_text.split("/")
             # give credit based type of out
             self.basic_play = self.basic_play[:first_separator]
 
     def check_ignore_events(self, play):
-        for event in Play.IGNORES:
+        for event in PlayType.IGNORES:
             match = re.fullmatch(event, play)
             if match is not None:
                 assert not self.is_processed
@@ -78,18 +92,16 @@ class Play:
 
     def check_independent_runner_events(self, play):
 
-        for event in Play.ISOLATED_RUNNER_OUTS:
+        for event in PlayType.ISOLATED_RUNNER_OUTS:
             match = re.fullmatch(event, play)
             if match is not None:
                 if "CS" in event:
                     runner_starting_base_str = play[play.find("CS") + 2]
                     if runner_starting_base_str == 'H':
                         runner_starting_base_str = '4'
-                    runner_base = int(runner_starting_base_str) + \
-                                  Play.ISOLATED_RUNNER_OUTS[event]
+                    runner_base = int(runner_starting_base_str) + PlayType.ISOLATED_RUNNER_OUTS[event]
                 elif "PO" in event:
-                    runner_base = int(play[play.find("PO") + 2]) + \
-                                  Play.ISOLATED_RUNNER_OUTS[event]
+                    runner_base = int(play[play.find("PO") + 2]) + PlayType.ISOLATED_RUNNER_OUTS[event]
                 else:
                     raise NotImplementedError(f"Cannot handle event {event}")
                 self.advancements[runner_base] = -1
@@ -98,7 +110,7 @@ class Play:
                 self.is_processed = True
                 logging.debug(f"Play is a runner out")
 
-        for event in Play.STEAL_ERRORS:
+        for event in PlayType.STEAL_ERRORS:
             match = re.fullmatch(event, play)
             if match is not None:
                 if "CS" in event:
@@ -106,11 +118,11 @@ class Play:
                     if runner_starting_base_str == 'H':
                         runner_starting_base_str = '4'
                     runner_base = int(runner_starting_base_str) + \
-                                  Play.STEAL_ERRORS[event]
+                                  PlayType.STEAL_ERRORS[event]
                     self.advancements[runner_base] += 1
                 elif "PO" in event:
                     runner_base = int(play[play.find("PO") + 2]) + \
-                                  Play.STEAL_ERRORS[event]
+                                  PlayType.STEAL_ERRORS[event]
                 else:
                     raise NotImplementedError(f"Cannot handle event {event}")
                 self.error_credits = [num + 1 for num in self.error_credits]
@@ -118,18 +130,18 @@ class Play:
                 self.is_processed = True
                 logging.debug(f"Play is an error on a steal or attempted pickoff")
 
-        for event in Play.STEALS:
+        for event in PlayType.STEALS:
             match = re.fullmatch(event, play)
             if match is not None:
-                end_base = play[play.find("SB")+2]
+                end_base = play[play.find("SB") + 2]
                 end_base = 4 if end_base == "H" else int(end_base)
-                cur_base = end_base + Play.STEALS[event]
+                cur_base = end_base + PlayType.STEALS[event]
                 self.advancements[cur_base] = end_base
                 assert not self.is_processed
                 self.is_processed = True
                 logging.debug(f"Play is a steal")
 
-        for event in Play.WILD_OR_PASSEDS + Play.BALKS:
+        for event in PlayType.WILD_OR_PASSEDS + PlayType.BALKS:
             match = re.fullmatch(event, play)
             if match is not None:
                 self.error_credits = [num + 1 for num in self.error_credits]
@@ -137,7 +149,7 @@ class Play:
                 self.is_processed = True
                 logging.debug(f"Play is a wild pitch, passed ball, or balk")
 
-        for event in Play.DEFENSIVE_INDIFFERENCE:
+        for event in PlayType.DEFENSIVE_INDIFFERENCE:
             match = re.fullmatch(event, play)
             if match is not None:
                 self.error_credits = [num + 0.5 for num in self.error_credits]
@@ -147,25 +159,25 @@ class Play:
 
     def check_hitter_events(self, play):
 
-        for event in Play.HITS.keys():
+        for event in PlayType.HITS.keys():
             match = re.fullmatch(event, play)
             if match is not None:
-                self.hitter_max_credit = Play.HITS[event] + 0.5
-                self.advancements[0] = Play.HITS[event]
+                self.hitter_max_credit = PlayType.HITS[event] + 0.5
+                self.advancements[0] = PlayType.HITS[event]
                 assert not self.is_processed
                 self.is_processed = True
                 logging.debug(f"Play is a hit")
 
-        for event in Play.WALKS.keys():
+        for event in PlayType.WALKS.keys():
             match = re.fullmatch(event, play)
             if match is not None:
-                self.hitter_max_credit = Play.WALKS[event]
-                self.advancements[0] = Play.WALKS[event]
+                self.hitter_max_credit = PlayType.WALKS[event]
+                self.advancements[0] = PlayType.WALKS[event]
                 assert not self.is_processed
                 self.is_processed = True
                 logging.debug(f"Play is a walk")
 
-        for event in Play.OUTS:  # TODO figure baserunner vs batter credit
+        for event in PlayType.OUTS:  # TODO figure baserunner vs batter credit
             match = re.fullmatch(event, play)
             if match is not None:  # and "FO" not in self.modifiers:
                 self.hitter_max_credit = 1  # should be 0 or 0.5 in some situations, need modifiers
@@ -174,7 +186,7 @@ class Play:
                 self.is_processed = True
                 logging.debug(f"Play is an out")
 
-        for event in Play.DOUBLE_PLAYS:
+        for event in PlayType.DOUBLE_PLAYS:
             match = re.fullmatch(event, play)
             if match is not None:
                 assert "DP" in self.modifiers or "GDP" in self.modifiers
@@ -189,7 +201,7 @@ class Play:
                 self.is_processed = True
                 logging.debug(f"Play is a double play")
 
-        for event in Play.TRIPLE_PLAYS:
+        for event in PlayType.TRIPLE_PLAYS:
             match = re.fullmatch(event, play)
             if match is not None:
                 assert "TP" in self.modifiers or "GTP" in self.modifiers
@@ -204,7 +216,7 @@ class Play:
                 self.is_processed = True
                 logging.debug(f"Play is a triple play")
 
-        for event in Play.ERRORS:
+        for event in PlayType.ERRORS:
             match = re.fullmatch(event, play)
             if match is not None:
                 self.hitter_max_credit = 0
@@ -214,9 +226,9 @@ class Play:
                 self.is_processed = True
                 logging.debug(f"Play is an error")
 
-        for event in Play.FIELDERS_CHOICES:  # TODO make sure runner out is handled, give credit to runner out
+        for event in PlayType.FIELDERS_CHOICES:
             match = re.fullmatch(event, play)
-            if match is not None:# or "FO" in self.modifiers:
+            if match is not None:  # or "FO" in self.modifiers:
                 # if "FO" in self.modifiers:
                 #     assert re.fullmatch(Play.OUTS[1], play) is not None
                 self.fielders_choice_credit = 0  # to be filled in in runners events
@@ -226,7 +238,7 @@ class Play:
                 self.is_processed = True
                 logging.debug(f"Play is a fielders choice")
 
-        for event in Play.FORCE_OUTS:
+        for event in PlayType.FORCE_OUTS:
             match = re.fullmatch(event, play)
             if match is not None:
                 runner_outs = re.findall("\([B|1-3]\)", play)
@@ -252,7 +264,7 @@ class Play:
             runner_base = 0 if runner_base == "B" else int(runner_base)
             is_processed = False
 
-            for event in Play.BASE_OUTS:
+            for event in PlayType.BASE_OUTS:
                 match = re.fullmatch(event, running_event)
                 if match is not None:
                     self.advancements[runner_base] = -1
@@ -262,20 +274,20 @@ class Play:
                     is_processed = True
                     logging.debug(f"The runner on base {runner_base} is out on the bases")
 
-            for event in Play.BASE_MOTIONS:
+            for event in PlayType.BASE_MOTIONS:
                 match = re.fullmatch(event, running_event)
                 if match is not None:
-                    final_base_str = running_event[running_event.find("-")+1]
+                    final_base_str = running_event[running_event.find("-") + 1]
                     final_base = 4 if final_base_str == "H" else int(final_base_str)
                     self.advancements[runner_base] = final_base
                     assert not is_processed
                     is_processed = True
                     logging.debug(f"The runner on base {runner_base} advanced")
 
-            for event in Play.BASE_ERRORS.keys():  # TODO fix assigning credit on base errors
+            for event in PlayType.BASE_ERRORS.keys():
                 match = re.fullmatch(event, running_event)
                 if match is not None:
-                    final_base_str = running_event[running_event.find(Play.BASE_ERRORS[event])+1]
+                    final_base_str = running_event[running_event.find(PlayType.BASE_ERRORS[event]) + 1]
                     final_base = 4 if final_base_str == "H" else int(final_base_str)
                     self.error_credits = [num + 1 for num in self.error_credits]
                     self.advancements[runner_base] = final_base
@@ -285,7 +297,7 @@ class Play:
                     is_processed = True
                     logging.debug(f"The runner on base {runner_base} advanced on an error")
 
-            for event in Play.BASE_OUTS_AFTER_ERRORS:
+            for event in PlayType.BASE_OUTS_AFTER_ERRORS:
                 match = re.fullmatch(event, running_event)
                 if match is not None:
                     self.error_credits = [num + 1 for num in self.error_credits]
@@ -294,7 +306,8 @@ class Play:
                         self.fielders_choice_credit = runner_base
                     assert not is_processed
                     is_processed = True
-                    logging.debug(f"The runner on base {runner_base} advanced on an error but was eventually thrown out")
+                    logging.debug(
+                        f"The runner on base {runner_base} advanced on an error but was eventually thrown out")
 
             if not is_processed:
                 raise ValueError(
