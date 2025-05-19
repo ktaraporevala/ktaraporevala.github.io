@@ -69,8 +69,13 @@ class Season:
                     self.credit_dicts[team][player_id] = 0
                 self.credit_dicts[team][player_id] += credit_dict[player_id]
 
-    def get_rg_csv(self, include_extras=False, delimeter=','):
-        rg_csv = "Team,Player,Runs Generated\n"
+    def get_rg_csv(self, traditional_stats=None, include_extras=False, delimeter=','):
+        rg_csv = f"Team{delimeter}Player{delimeter}Runs Generated (new)"
+        if traditional_stats is not None:
+            traditional_stats['Player'] = traditional_stats['Player'].str.replace('[*|#]', '', regex=True)
+            traditional_stats["RG"] = traditional_stats.R * 0.5 + traditional_stats.RBI * 0.5
+            rg_csv += f"{delimeter}Runs Generated (old)"
+        rg_csv += '\n'
         for team_id in self.credit_dicts.keys():
             credit_dict = self.credit_dicts[team_id]
             team_name = self.info.lookup_name(team_id)[0]
@@ -82,8 +87,16 @@ class Season:
                 name, is_player = self.info.lookup_name(player_id)
                 if include_extras or is_player:
                     team_credit += credit
-                    rg_csv += f"{team_name},{name},{credit}\n"
-            rg_csv += f",{team_name} total,{team_credit}\n"
+                    rg_csv += f"{team_name}{delimeter}{name}{delimeter}{credit}"
+                    if traditional_stats is not None:
+                        try:
+                            rg_trad = float(traditional_stats[traditional_stats.retro_id == player_id].RG.values[0])
+                            rg_csv += f"{delimeter}{rg_trad}"
+                        except IndexError as e:
+                            logging.error(f"Could not read player {name}'s traditional runs generated")
+                            logging.error(e)
+                    rg_csv += '\n'
+            rg_csv += f"{delimeter}{team_name} total{delimeter}{team_credit}\n"
         return rg_csv
 
     def get_rg_readable(self, include_extras=False):
@@ -108,12 +121,57 @@ def run_season(folder, year):
     logging.basicConfig(level=logging.INFO)
     season = Season(folder, year)
     season.run_season()
+
+    # stats_df = get_season_stats(season.info)
     time.sleep(0.1)
+
     print(season.get_rg_readable())
     print()
-    print(season.get_rg_csv(include_extras=True))
+    print(season.get_rg_csv(traditional_stats=None, include_extras=False))
+    # print(season.get_rg_csv(traditional_stats=stats_df, include_extras=False))
 
-def run_game_debug(folder, year, file_name, game_num):
+def get_season_stats(info: SeasonInfo):
+
+    player_id_map_path = r"C:\Users\ktara\Downloads\SFBB Player ID Map - PLAYERIDMAP.csv"
+    id_map_df = pd.read_csv(player_id_map_path)
+    player_id_map_path2 = r"C:\Users\ktara\Downloads\KeyCrossReference.csv"
+    id_map_df2 = pd.read_csv(player_id_map_path2)
+
+    stats_path = r"C:\Users\ktara\Downloads\2024_mlb_batter_stats.csv"
+    stats_df = pd.read_csv(stats_path)
+    stats_df["Player"] = stats_df["Player"].str.replace("[*|#]", "", regex=True)
+
+    # retro_ids = {'chapm001': "Matt Chapman"}
+
+    stats_df["retro_id"] = ""
+    name_count = 0
+    match1_count = 0
+    match2_count = 0
+    nomatch_count = 0
+    for retro_id, name in info.players.items():
+        name_match = stats_df[stats_df.Player == name]
+        bref_id_match_1 = id_map_df[id_map_df.RETROID == retro_id].BREFID.values
+        bref_id_match_2 = id_map_df2[id_map_df2.PlayerKey == retro_id].BRKey.values
+        if len(name_match) > 0:
+            stats_df.loc[(stats_df['Player'] == name), ["retro_id"]] = retro_id
+            name_count += 1
+        elif len(bref_id_match_1) > 0:
+            stats_df.loc[(stats_df['Player-additional'] == bref_id_match_1[0]), ["retro_id"]] = retro_id
+            match1_count += 1
+        elif len(bref_id_match_2) > 0:
+            stats_df.loc[(stats_df['Player-additional'] == bref_id_match_2[0]), ["retro_id"]] = retro_id
+            match2_count += 1
+        else:
+            logging.warning(f"Player {name} with retro id {retro_id} is unable to find a match")
+            nomatch_count += 1
+
+    logging.info(f"Was able to match {name_count} players by name, {match1_count} with first spreadsheet,"
+                 f"{match2_count} with second spreadsheet, and {nomatch_count} were unable to be matched")
+
+    return stats_df
+
+def run_game_debug(folder, file_name, game_num):
+    year = int(file_name[:4])
     logging.basicConfig(level=logging.DEBUG)
     season = Season(folder, year)
     for root, dirs, files in os.walk(folder):
@@ -121,13 +179,15 @@ def run_game_debug(folder, year, file_name, game_num):
             if file == file_name:
                 season.run_team_season(os.path.join(root, file), [game_num])
 
+
 def main():
     folder = r"C:\Users\ktara\Downloads\Retrosheet Event Files"
-    year = 2024
+    years = [2024, 2023, 2022, 2021, 2020]
 
-    # run_game_debug(folder, year, file_name="2010FLO.EVN", game_num=15)
+    # run_game_debug(folder, file_name="2023BAL.EVA", game_num=66)
 
-    run_season(folder, year)
+    for year in years:
+        run_season(folder, year)
 
 if __name__ == "__main__":
     main()

@@ -25,22 +25,24 @@ class PlayType:
 
     BALKS = ["BK"]
     WILD_OR_PASSEDS = ["WP", "PB"]
-    STEAL_ERRORS = {"PO[1-3]\([1-9]?E[1-9].*\)": 0, "CS[2|3|H]\([1-9]+E[1-9]+\)": -1,
-                    "CS[2|3|H]\(E[1-9].*\)": -1,
-                    "POCS[2|3|H]\([1-9]*E[1-9].*\)": -1}  # value is what to add to get starting base of runner
-    ISOLATED_RUNNER_OUTS = {"CS[2|3|H]\([1-9]+\)": -1, "POCS[2|3|H]\([1-9]+\)": -1,
-                            "PO[1-3]\([1-9]+\)": 0}  # value is what to add to get starting base of runner
+    _THROW_ERROR = "E\d(\/TH)?"
+    STEAL_ERRORS = {f"PO[1-3]\(\d?{_THROW_ERROR}\)": 0,# f"CS[2|3|H]\(/d+E/d+\)": -1,
+                    f"CS[2|3|H]\(\d*{_THROW_ERROR}\)": -1,
+                    f"POCS[2|3|H]\(\d*{_THROW_ERROR}\)": -1}  # value is what to add to get starting base of runner
+    ISOLATED_RUNNER_OUTS = {"CS[2|3|H]\(\d+\)": -1, "POCS[2|3|H]\(\d+\)": -1,
+                            "PO[1-3]\(\d+\)": 0}  # value is what to add to get starting base of runner
     STEALS = {"SB[2|3|H]": -1}
     DEFENSIVE_INDIFFERENCE = {"DI"}
 
+    _BASE_ERROR = "\(\d*E\d\/?(TH|OBS)?\)"
     BASE_MOTIONS = ["[B|1-3]-[1-3|H](\((TH[1-3|H]?|WP|PB)\))?"]  # If batter advances on throw, they get full credit for extra bases
     BASE_OUTS = ["[B|1-3]X[1-3|H](\([\d|U]+\))?"]
-    BASE_OUTS_AFTER_ERRORS = ["[B|1-3]X[1-3|H]\(\d+\)\(\d*E\d.*\)"]
-    BASE_ERRORS = {"[B|1-3]X[1-3|H](\(\d*E\d.*\))": 'X', "[B|1-3]-[1-3|H](\(\d*E\d.*\))": '-'}
+    BASE_OUTS_AFTER_ERRORS = [f"[B|1-3]X[1-3|H]\(\d+\){_BASE_ERROR}", f"[B|1-3]X[1-3|H]{_BASE_ERROR}\(\d+\)"]
+    BASE_ERRORS = {f"[B|1-3]X[1-3|H]({_BASE_ERROR})+": 'X', f"[B|1-3]-[1-3|H](\((TH|WP)\))?({_BASE_ERROR})+": '-'}
 
     IGNORES = ["NP", "FLE[1-9]", "OA"]
 
-    REMOVE_FROM_PLAY = ["!", "(UR)", "(NR)", "(RBI)", "(NORBI)", "(TUR)"]
+    REMOVE_FROM_PLAY = ["!", '#', "(UR)", "(NR)", "(RBI)", "(NORBI)", "(TUR)"]
 
 
 class Play:
@@ -208,8 +210,9 @@ class Play:
                 runner_outs = re.findall("\(\d\)", play)
                 if runner_outs is not None:
                     assert len(runner_outs) == 2
-                    out_base = int(runner_outs[0][1])
-                    self.advancements[out_base] = -1
+                    for i in range(2):
+                        out_base = int(runner_outs[i][1])
+                        self.advancements[out_base] = -1
                 self.hitter_max_credit = 0  # should be 0 or 0.5 in some situations, need modifiers
                 self.advancements[0] = -1
                 assert not self.is_processed
@@ -243,7 +246,7 @@ class Play:
             if match is not None:
                 runner_outs = re.findall("\([B|1-3]\)", play)
                 if len(runner_outs) != 1:
-                    assert "GDP" in self.modifiers
+                    assert [] != [mod for mod in self.modifiers if "DP" in mod]
                 out_bases_str = [runner_out[1] for runner_out in runner_outs]
                 out_bases = [0 if runner_out == "B" else int(runner_out) for runner_out in out_bases_str]
                 self.fielders_choice_credit = out_bases[0]

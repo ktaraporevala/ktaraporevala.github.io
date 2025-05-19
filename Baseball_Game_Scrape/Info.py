@@ -32,7 +32,7 @@ class SeasonInfo:
     MANFRED_ID = "manfredrob"
 
     def __init__(self):
-        self.players: {str: str} = {}  # to give credit for ghost runner
+        self.players: {str: str} = {}  # id : name
         self.teams: {str: TeamInfo} = {}
 
     def lookup_name(self, id_str):  # Note: may be player, team, or Manfred. Returns is_player

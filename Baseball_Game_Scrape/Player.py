@@ -1,6 +1,5 @@
 import logging
 
-POSITIONS = {}
 
 class Player:
     BASE_DICT = {0: "batting", 1: "first", 2: "second", 3: "third", 4: "home"}
