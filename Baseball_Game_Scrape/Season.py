@@ -1,6 +1,7 @@
 import time
 import os
 import pandas as pd
+from unidecode import unidecode
 
 from Game import Game
 from Info import TeamInfo, LeagueInfo, SeasonInfo
@@ -34,7 +35,7 @@ class Season:
                     logging.info(f"Reading file {file}")
                     file_path = os.path.join(root, file)
                     self.run_team_season(file_path)
-
+        self.clean_up_players()
 
     def run_team_season(self, file_path, game_list: [int] = None):
         full_text = open(file_path, "r").read()
@@ -68,6 +69,22 @@ class Season:
                 if player_id not in self.credit_dicts[team].keys():
                     self.credit_dicts[team][player_id] = 0
                 self.credit_dicts[team][player_id] += credit_dict[player_id]
+
+    def clean_up_players(self):
+        for player_id in self.info.players.keys():
+            team_matches = {}
+            for team in self.credit_dicts:
+                if player_id in self.credit_dicts[team]:
+                    team_matches[team] = self.credit_dicts[team][player_id]
+
+            if len(team_matches) > 1:
+                matches = sorted(team_matches.keys(), key=lambda x: -team_matches[x])
+                main_team = matches[0]
+                for team in matches:
+                    if team == main_team:
+                        self.credit_dicts[team][player_id] = sum(team_matches.values())
+                    else:
+                        self.credit_dicts[team].pop(player_id)
 
     def get_rg_csv(self, traditional_stats=None, include_extras=False, delimeter=','):
         rg_csv = f"Team{delimeter}Player{delimeter}Runs Generated (new)"
@@ -122,13 +139,13 @@ def run_season(folder, year):
     season = Season(folder, year)
     season.run_season()
 
-    # stats_df = get_season_stats(season.info)
+    stats_df = get_season_stats(season.info)
     time.sleep(0.1)
 
     print(season.get_rg_readable())
     print()
-    print(season.get_rg_csv(traditional_stats=None, include_extras=False))
-    # print(season.get_rg_csv(traditional_stats=stats_df, include_extras=False))
+    # print(season.get_rg_csv(traditional_stats=None, include_extras=False))
+    print(season.get_rg_csv(traditional_stats=stats_df, include_extras=False))
 
 def get_season_stats(info: SeasonInfo):
 
@@ -140,6 +157,8 @@ def get_season_stats(info: SeasonInfo):
     stats_path = r"C:\Users\ktara\Downloads\2024_mlb_batter_stats.csv"
     stats_df = pd.read_csv(stats_path)
     stats_df["Player"] = stats_df["Player"].str.replace("[*|#]", "", regex=True)
+    for i, player in enumerate(stats_df.Player):
+        stats_df.loc[i, ["Player"]] = unidecode(player)
 
     # retro_ids = {'chapm001': "Matt Chapman"}
 
